@@ -32,7 +32,7 @@ trigger:
       - "main"
   paths:
     exclude: # Exclude files from triggering the pipeline
-      - ".azure_devops/*"
+      # - ".azure_devops/*"
       - ".github/*"
       - "README.md"
 
@@ -105,7 +105,7 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_ENV: $(ENV_ID)
+              DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Validate bundle"
 
@@ -115,7 +115,7 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_ENV: $(ENV_ID)
+              DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Deploy bundle to dev test"
 
@@ -184,12 +184,12 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_ENV: $(ENV_ID)
+              DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Validate DLT pipeline"
 
           #- script: |
-          #    databricks bundle run -t $(ENV_ID) integration-tests-runner
+          #    databricks bundle run -t $(TARGET) integration-tests-runner
           #  env:
           #    DATABRICKS_HOST: $(DATABRICKS_INSTANCE)
           #    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
