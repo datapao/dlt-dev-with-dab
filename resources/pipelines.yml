@@ -1,0 +1,34 @@
+# The main pipeline for my_project
+resources:
+  pipelines:
+    my_project_pipeline:
+      name: my_project_pipeline
+      target: my_project_${bundle.environment}
+      libraries:
+        - notebook:
+            path: ../pipelines/DLT-Pipeline.py
+
+      configuration:
+        bundle.sourcePath: /Workspace/${workspace.root_path}/files
+        my_etl.data_path: /databricks-datasets/wikipedia-datasets/data-001/clickstream/raw-uncompressed-json/2015_2_clickstream.json
+
+      clusters:
+        - label: default
+          num_workers: 1
+
+    my_project_pipeline_integration_test:
+      name: my_project_pipeline_integration_test
+      target: my_project_${bundle.environment}
+      libraries:
+        - notebook:
+            path: ../pipelines/DLT-Pipeline.py
+        - notebook:
+            path: ../tests/integration/DLT-Pipeline-Test.py
+
+      configuration:
+        bundle.sourcePath: /Workspace/${workspace.file_path}/src
+        my_etl.data_path: /databricks-datasets/wikipedia-datasets/data-001/clickstream/raw-uncompressed-json/2015_2_clickstream.json
+
+      clusters:
+        - label: default
+          num_workers: 1

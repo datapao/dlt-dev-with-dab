@@ -1,0 +1,248 @@
+variables:
+  # Set environment specific variables based on the name of the source branch
+  - ${{ if eq(replace(variables['Build.SourceBranch'], 'refs/heads/', ''), 'main') }}:
+      - group: DLT_DAB_ENV_PROD
+      - name: TARGET
+        value: "prod"
+  - ${{ elseif eq(replace(variables['Build.SourceBranch'], 'refs/heads/', ''), 'staging') }}:
+      - group: DLT_DAB_ENV_STG
+      - name: TARGET
+        value: "staging"
+  - ${{ else }}:
+      - group: DLT_DAB_ENV_DEV
+      - name: TARGET
+        value: "dev"
+
+  # # Set test environment variables
+  # - group: DBX_ENV_TST
+
+  # # Set common variables
+  # - group: DBX_COMMON
+
+  # Others
+  - name: GIT_BRANCH
+    value: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - "development"
+      - "staging"
+      - "main"
+  paths:
+    exclude: # Exclude files from triggering the pipeline
+      - ".azure_devops/*"
+      - ".github/*"
+      - "README.md"
+
+stages:
+  - stage: onPush
+    jobs:
+      - job: onPushJob
+        pool:
+          vmImage: "ubuntu-20.04"
+
+        steps:
+          #########################################################
+          # Init actions
+          #########################################################
+
+          - script: env | sort
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "List environment / context"
+
+          - task: UsePythonVersion@0
+            displayName: "Use Python 3.10"
+            inputs:
+              versionSpec: 3.10
+
+          - checkout: self
+            persistCredentials: true
+            clean: true
+            fetchDepth: 0
+            displayName: "Checkout & Build.Reason: $(Build.Reason) & Build.SourceBranchName: $(Build.SourceBranchName)"
+
+          - script: |
+              curl -sSL https://install.python-poetry.org | python -
+              export PATH=$PATH:$HOME/.poetry/bin
+              poetry install --no-root
+            displayName: "Install dependencies"
+
+          - script: echo "##vso[task.prependpath]$HOME/.poetry/bin"
+            displayName: Add poetry to PATH
+
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Install Databricks CLI"
+
+          # - script: |
+          #     echo "sonar.projectName=paofactory-dbx-devops-buildout-demo" >> sonar-project.properties
+          #     echo "sonar.projectKey=$(SONARQUBE_PROJECT_KEY)" >> sonar-project.properties
+          #     echo "sonar.projectVersion=$(GIT_BRANCH)-$(Build.BuildId)" >> sonar-project.properties
+          #     echo "sonar.analysis.revision=$(Rev:.r)" >> sonar-project.properties
+          #     echo "sonar.analysis.branch=$(GIT_BRANCH)" >> sonar-project.properties
+          #     echo "sonar.analysis.buildid=$(Build.BuildId)" >> sonar-project.properties
+          #   workingDirectory: '$(System.DefaultWorkingDirectory)'
+          #   displayName: 'Set SonarQube analyzer properties'
+
+          # - task: SonarQubePrepare@5
+          #   inputs:
+          #     SonarQube: 'pao-sonarqube'
+          #     scannerMode: 'CLI'
+          #     configMode: 'file'
+          #     configFile: 'sonar-project.properties'
+          #   displayName: 'Initialize SonarQube analyzer'
+
+          #########################################################
+          # Execute unit tests
+          #########################################################
+
+          - script: |
+              databricks bundle validate
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_BUNDLE_ENV: $(ENV_ID)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Validate bundle"
+
+          - script: |
+              databricks bundle deploy
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_BUNDLE_ENV: $(ENV_ID)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Deploy bundle to dev test"
+
+          # - script: |
+          #     nutter run $(ROOT_PATH)/files/tests/notebook_unit/ $(CLUSTER_ID) --recursive --junit_report --timeout 600
+          #   env:
+          #     DATABRICKS_HOST: $(DATABRICKS_HOST)
+          #     DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+          #     DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+          #   workingDirectory: "$(System.DefaultWorkingDirectory)"
+          #   displayName: "Execute Nutter based unit tests"
+
+          - script: |
+              poetry run pytest tests/unit-local --junit-xml=test-local.xml --cov
+              # python -m pytest tests/unit --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov=. --junitxml=test-pytest-junit.xml
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_CLUSTER_ID: $(CLUSTER_ID)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Execute Pytest unit tests"
+
+          #########################################################
+          # Build and execute integration tests
+          #########################################################
+
+          - script: |
+              DLT_START=$SECONDS
+              DLT_START_ISO=$(date --iso-8601=seconds)
+              poetry run databricks pipelines start-update $(TEST_DLT_PIPELINE_ID) --full-refresh
+              sleep 15
+              while true; do
+                DLT_STATUS=$(poetry run databricks pipelines get $(TEST_DLT_PIPELINE_ID) |jq -r '.latest_updates[0].state')
+                if [ "$DLT_STATUS" = "COMPLETED" -o "$DLT_STATUS" = "CANCELED" -o "$DLT_STATUS" = "FAILED" ]; then
+                  echo "Exiting loop with status '$DLT_STATUS'"
+                  break
+                fi
+                echo "DLT pipeline status is '$DLT_STATUS'. Waiting..."
+                sleep 15
+              done
+              DLT_FINISH=$SECONDS
+              DLT_ERRORS=$(( "$DLT_STATUS" = "FAILED" ? 1 : 0 ))
+              DLT_SKIPPED=$(( "$DLT_STATUS" = "CANCELED" ? 1 : 0 ))
+              echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><testsuites><testsuite name=\"DLT Integration test\" tests=\"1\" skipped=\"$DLT_SKIPPED\" errors=\"$DLT_ERRORS\" failures=\"$DLT_ERRORS\" time=\"$((DLT_FINISH-DLT_START))\" timestamp=\"${DLT_START_ISO}\">" > test-dlt.xml
+              echo "<testcase classname=\"DLTIntegration\" name=\"${TEST_DLT_PIPELINE_NAME}\" time=\"$((DLT_FINISH-DLT_START))\">" >> test-dlt.xml
+              if [ "$DLT_STATUS" = "FAILED" ]; then
+                DLT_UPDATE_ID=$(poetry run databricks pipelines get $(TEST_DLT_PIPELINE_ID) |jq -r '.latest_updates[0].update_id')
+                echo "<failure message=\"DLT test failure\">Pipeline update with ID ${DLT_UPDATE_ID} has failed</failure>" >> test-dlt.xml
+              elif [ "$DLT_STATUS" = "CANCELED" ]; then
+                echo '<skipped />' >> test-dlt.xml
+              fi
+              echo '</testcase></testsuite></testsuites>' >> test-dlt.xml
+              if [ "$DLT_STATUS" != "COMPLETED" ]; then
+                exit 1
+              fi
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+            displayName: "Execute DLT Integration Test pipeline"
+
+          - script: |
+              databricks bundle run --validate-only my_project_pipeline
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_BUNDLE_ENV: $(ENV_ID)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Validate DLT pipeline"
+
+          #- script: |
+          #    databricks bundle run -t $(ENV_ID) integration-tests-runner
+          #  env:
+          #    DATABRICKS_HOST: $(DATABRICKS_INSTANCE)
+          #    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+          #  workingDirectory: '$(System.DefaultWorkingDirectory)'
+          #  condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
+          #  displayName: 'Execute Pytest integration tests'
+
+          #########################################################
+          # SonarQube analyzer
+          #########################################################
+
+          # - task: SonarQubeAnalyze@5
+          #   displayName: "Run SonarQube analyzer"
+
+          #########################################################
+          # Publish artifacts
+          #########################################################
+
+          # - script: |
+          #     rm sonar-project.properties
+          #   workingDirectory: "$(System.DefaultWorkingDirectory)"
+          #   displayName: "Clean-up directory"
+
+          - task: ArchiveFiles@2
+            condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
+            inputs:
+              rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+              replaceExistingArchive: true
+            displayName: "Archive files"
+
+          - task: PublishBuildArtifacts@1
+            condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
+            inputs:
+              PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
+              artifactName: "drop"
+            displayName: "Upload build_$(Build.BuildId).zip to artifacts"
+
+          #########################################################
+          # Process test results
+          #########################################################
+
+          # - task: SonarQubePublish@5
+          #   inputs:
+          #     pollingTimeoutSec: "300"
+          #   displayName: "Publish SonarQube analyzer results"
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "**/test-*.xml"
+              failTaskOnFailedTests: true
+            displayName: "Publish test results"
