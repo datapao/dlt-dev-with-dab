@@ -133,3 +133,6 @@ dmypy.json
 /test-local.xml
 /terraform/azuredevops/terraform.tfvars
 /.databricks/
+
+
+.vscode/
