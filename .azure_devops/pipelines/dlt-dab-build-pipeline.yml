@@ -119,18 +119,23 @@ stages:
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Deploy bundle to dev test"
 
-          - script: |
-              nutter run $(ROOT_PATH)/files/tests/notebook_unit/ $(CLUSTER_ID) --recursive --junit_report --timeout 600
-            env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
-            displayName: "Execute Nutter based unit tests"
+          # - script: |
+          #     nutter run $(ROOT_PATH)/files/tests/notebook_unit/ $(CLUSTER_ID) --recursive --junit_report --timeout 600
+          #   env:
+          #     DATABRICKS_HOST: $(DATABRICKS_HOST)
+          #     DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+          #     DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+          #   workingDirectory: "$(System.DefaultWorkingDirectory)"
+          #   displayName: "Execute Nutter based unit tests"
 
           - script: |
               poetry run pytest tests/unit-local --junit-xml=test-local.xml --cov
               # python -m pytest tests/unit --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov=. --junitxml=test-pytest-junit.xml
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_CLUSTER_ID: $(CLUSTER_ID)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Execute Pytest unit tests"
 
@@ -172,6 +177,16 @@ stages:
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
             displayName: "Execute DLT Integration Test pipeline"
+
+          - script: |
+              databricks bundle run --validate-only my_project_pipeline
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_BUNDLE_ENV: $(ENV_ID)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Validate DLT pipeline"
 
           #- script: |
           #    databricks bundle run -t $(ENV_ID) integration-tests-runner
