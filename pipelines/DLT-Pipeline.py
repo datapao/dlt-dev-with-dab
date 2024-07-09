@@ -2,7 +2,17 @@
 # This notebook shows how to use files in repos functionality in Delta Live Tables.
 
 # COMMAND ----------
+# MAGIC %md
+# MAGIC Adding the path to the sys.path to import the required modules because the module is not deployed to repos.
 
+# COMMAND ----------
+import sys
+
+bundle_root_path = spark.conf.get("bundle.sourcePath")
+print(f"Adding {bundle_root_path} to sys.path")
+sys.path.append(bundle_root_path)
+
+# COMMAND ----------
 # import helper functions from the current repository
 import helpers.columns_helpers as ch
 
@@ -19,20 +29,21 @@ print(f"Loading data from {json_path}")
 
 # COMMAND ----------
 
+
 @dlt.table(
-   comment="The raw wikipedia clickstream dataset, ingested from /databricks-datasets."
+    comment="The raw wikipedia clickstream dataset, ingested from /databricks-datasets."
 )
 def clickstream_raw():
-  return spark.read.format("json").load(json_path)
+    return spark.read.format("json").load(json_path)
+
 
 # COMMAND ----------
 
-@dlt.table(
-  comment="Leave only links, and exclude some columns from dataset"
-)
+
+@dlt.table(comment="Leave only links, and exclude some columns from dataset")
 @dlt.expect_or_drop("only links", "type is not null and type in ('link', 'redlink')")
 def clickstream_filtered():
-  df = dlt.read("clickstream_raw")
-  # use imported function
-  new_cols = ch.columns_except(df, ['prev_id', 'prev_title'])
-  return df.select(*new_cols)
+    df = dlt.read("clickstream_raw")
+    # use imported function
+    new_cols = ch.columns_except(df, ["prev_id", "prev_title"])
+    return df.select(*new_cols)
