@@ -1,0 +1,100 @@
+trigger:
+  - none
+
+resources:
+  pipelines:
+  - pipeline: buildpl
+    source: dab-build-pipeline
+    trigger: 
+      branches:
+      - development
+      - staging
+      - main
+
+variables:
+  - group: DBX_COMMON
+
+jobs:
+- job: preconfig
+  displayName: 'Pre-configuration'
+  pool: 
+    vmImage: 'ubuntu-20.04'
+  steps:
+  - task: Bash@3
+    name: branchvar
+    inputs:
+      targetType: 'inline'
+      script: |
+        branch=$(resources.pipeline.buildpl.sourceBranch)
+        prefix="refs/heads/"
+        echo "##vso[task.setVariable variable=GIT_BRANCH;isOutput=true]${branch#"$prefix"}"
+    displayName: 'Retrieve the name of the source branch and set GIT_BRANCH variable'
+
+#########################################################
+# Deploy to development
+#########################################################
+
+- deployment: release_dev
+  condition: and(succeeded(), eq(dependencies.preconfig.outputs['branchvar.GIT_BRANCH'], 'development'))
+  displayName: Deploy to development environment
+  dependsOn: preconfig
+  variables:
+    - group: DBX_ENV_DEV
+    - name: ENV_ID
+      value: 'DEV'
+    - name: GIT_BRANCH
+      value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
+  environment: development
+  pool: 
+    vmImage: 'ubuntu-20.04'
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - template: 'dbx-release-pipeline-steps.yml'
+
+#########################################################
+# Deploy to staging
+#########################################################
+
+- deployment: release_stg
+  condition: and(succeeded(), eq(dependencies.preconfig.outputs['branchvar.GIT_BRANCH'], 'staging'))
+  displayName: Deploy to staging environment
+  dependsOn: preconfig
+  variables:
+    - group: DBX_ENV_STG
+    - name: ENV_ID
+      value: 'STG'
+    - name: GIT_BRANCH
+      value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
+  environment: staging
+  pool: 
+    vmImage: 'ubuntu-20.04'
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - template: 'dbx-release-pipeline-steps.yml'
+
+#########################################################
+# Deploy to production
+#########################################################
+
+- deployment: release_prod
+  condition: and(succeeded(), eq(dependencies.preconfig.outputs['branchvar.GIT_BRANCH'], 'main'))
+  displayName: Deploy to production environment
+  dependsOn: preconfig
+  variables:
+    - group: DBX_ENV_PROD
+    - name: ENV_ID
+      value: 'PROD'
+    - name: GIT_BRANCH
+      value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
+  environment: production
+  pool: 
+    vmImage: 'ubuntu-20.04'
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - template: 'dbx-release-pipeline-steps.yml'
