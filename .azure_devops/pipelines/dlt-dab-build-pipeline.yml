@@ -20,18 +20,18 @@ variables:
   - name: GIT_BRANCH
     value: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
 
-trigger:
-  batch: true
-  branches:
-    include:
-      - "development"
-      - "staging"
-      - "main"
-  paths:
-    exclude: # Exclude files from triggering the pipeline
-      # - ".azure_devops/*"
-      - ".github/*"
-      - "README.md"
+# trigger:
+#   batch: true
+#   branches:
+#     include:
+#       - "development"
+#       - "staging"
+#       - "main"
+#   paths:
+#     exclude: # Exclude files from triggering the pipeline
+#       # - ".azure_devops/*"
+#       - ".github/*"
+#       - "README.md"
 
 pr:
   branches:
