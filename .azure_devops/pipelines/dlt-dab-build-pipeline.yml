@@ -12,10 +12,6 @@ variables:
       - group: DLT_DAB_ENV_DEV
       - name: TARGET
         value: "dev"
-  - ${{ else }}:
-      - group: DLT_DAB_ENV_DEV_TEST
-      - name: TARGET
-        value: "dev_test"
 
   # Set test environment variables
   - group: DLT_DAB_ENV_DEV_TEST
@@ -99,7 +95,6 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Deploy bundle to dev test"
 
@@ -114,13 +109,11 @@ stages:
 
           - script: |
               poetry run pytest tests/unit-local --junit-xml=test-local.xml --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov
-              # python -m pytest tests/unit --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov=. --junitxml=test-pytest-junit.xml
             env:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
               DATABRICKS_CLUSTER_ID: $(TEST_CLUSTER_ID)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Execute Pytest unit tests"
 
           #########################################################
@@ -128,6 +121,8 @@ stages:
           #########################################################
 
           - script: |
+              set -e
+              set -x
               DLT_START=$SECONDS
               DLT_START_ISO=$(date --iso-8601=seconds)
               poetry run databricks pipelines start-update $(TEST_DLT_PIPELINE_ID) --full-refresh
@@ -144,6 +139,7 @@ stages:
               DLT_FINISH=$SECONDS
               DLT_ERRORS=$(( "$DLT_STATUS" = "FAILED" ? 1 : 0 ))
               DLT_SKIPPED=$(( "$DLT_STATUS" = "CANCELED" ? 1 : 0 ))
+              echo "Writing JUnit report for DLT test"
               echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><testsuites><testsuite name=\"DLT Integration test\" tests=\"1\" skipped=\"$DLT_SKIPPED\" errors=\"$DLT_ERRORS\" failures=\"$DLT_ERRORS\" time=\"$((DLT_FINISH-DLT_START))\" timestamp=\"${DLT_START_ISO}\">" > test-dlt.xml
               echo "<testcase classname=\"DLTIntegration\" name=\"${TEST_DLT_PIPELINE_NAME}\" time=\"$((DLT_FINISH-DLT_START))\">" >> test-dlt.xml
               if [ "$DLT_STATUS" = "FAILED" ]; then
@@ -156,20 +152,19 @@ stages:
               if [ "$DLT_STATUS" != "COMPLETED" ]; then
                 exit 1
               fi
+              cat test-dlt.xml
             env:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Execute DLT Integration Test pipeline"
 
           - script: |
-              databricks bundle run --validate-only my_project_pipeline
+              databricks bundle run --target dev_test --validate-only my_project_pipeline
             env:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Validate DLT pipeline"
 
@@ -178,6 +173,7 @@ stages:
           #########################################################
 
           - script: |
+              echo $(TARGET)
               databricks bundle validate --target $(TARGET)
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST)

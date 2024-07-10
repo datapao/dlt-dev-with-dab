@@ -17,7 +17,7 @@ def spark_session() -> SparkSession:
     # The handle 8f333dc3-8476-4663-afce-4c582571ceac is invalid. Session not found. SQLSTATE: HY000
     w = WorkspaceClient()
 
-    cluster_id = os.environ["CLUSTER_ID"]
+    cluster_id = os.environ["TEST_CLUSTER_ID"]
     w.clusters.ensure_cluster_is_running(cluster_id)
 
     spark = SparkSession.builder.getOrCreate()

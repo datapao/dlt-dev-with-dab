@@ -4,15 +4,12 @@ trigger:
 resources:
   pipelines:
   - pipeline: buildpl
-    source: dab-build-pipeline
+    source: dlt-dev-with-dab-build-pl
     trigger: 
       branches:
       - development
       - staging
       - main
-
-variables:
-  - group: DBX_COMMON
 
 jobs:
 - job: preconfig
@@ -39,9 +36,9 @@ jobs:
   displayName: Deploy to development environment
   dependsOn: preconfig
   variables:
-    - group: DBX_ENV_DEV
-    - name: ENV_ID
-      value: 'DEV'
+    - group: DLT_DAB_ENV_DEV
+    - name: TARGET
+      value: 'dev'
     - name: GIT_BRANCH
       value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
   environment: development
@@ -62,9 +59,9 @@ jobs:
   displayName: Deploy to staging environment
   dependsOn: preconfig
   variables:
-    - group: DBX_ENV_STG
-    - name: ENV_ID
-      value: 'STG'
+    - group: DLT_DAB_ENV_STG
+    - name: TARGET
+      value: 'staging'
     - name: GIT_BRANCH
       value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
   environment: staging
@@ -85,9 +82,9 @@ jobs:
   displayName: Deploy to production environment
   dependsOn: preconfig
   variables:
-    - group: DBX_ENV_PROD
-    - name: ENV_ID
-      value: 'PROD'
+    - group: DLT_DAB_ENV_PROD
+    - name: TARGET
+      value: 'prod'
     - name: GIT_BRANCH
       value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
   environment: production
