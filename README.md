@@ -1,4 +1,4 @@
-This repository contains a demo of using [Files in Repos](https://docs.databricks.com/repos/work-with-notebooks-other-files.html#work-with-python-and-r-modules) functionality with [Databricks Delta Live Tables (DLT)](https://docs.databricks.com/workflows/delta-live-tables/index.html) to perform unit & integration testing of DLT pipelines.
+This repository contains a demo of the development lifecycle with  [Databricks Delta Live Tables (DLT)](https://docs.databricks.com/workflows/delta-live-tables/index.html) to perform unit & integration testing of DLT pipelines using [Databricks Asset Bundles](https://docs.databricks.com/en/dev-tools/bundles/index.html).  The repository also includes a sample of CI/CD pipeline using [Azure DevOps](https://azure.microsoft.com/en-us/services/devops/) (ADO) to automate the testing and deployment of DLT pipelines.
 
 * [The development workflow](#the-development-workflow)
 * [Setup instructions](#setup-instructions)

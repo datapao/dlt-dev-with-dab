@@ -13,8 +13,8 @@ steps:
   - script: |
       databricks bundle deploy --target $(TARGET)
     env:
-      DATABRICKS_HOST: $(DATABRICKS_HOST)
-      DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-      DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+      DATABRICKS_HOST: $(_DATABRICKS_HOST)
+      DATABRICKS_CLIENT_ID: $(_DATABRICKS_CLIENT_ID)
+      DATABRICKS_CLIENT_SECRET: $(_DATABRICKS_CLIENT_SECRET)
     workingDirectory: "$(Pipeline.Workspace)"
     displayName: "Deploy bundle"

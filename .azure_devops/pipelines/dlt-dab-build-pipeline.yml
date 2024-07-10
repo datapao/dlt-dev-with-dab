@@ -101,9 +101,9 @@ stages:
           # - script: |
           #     nutter run $(ROOT_PATH)/files/tests/notebook_unit/ $(CLUSTER_ID) --recursive --junit_report --timeout 600
           #   env:
-          #     DATABRICKS_HOST: $(DATABRICKS_HOST)
-          #     DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-          #     DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+          #     DATABRICKS_HOST: $(_DATABRICKS_HOST)
+          #     DATABRICKS_CLIENT_ID: $(_DATABRICKS_CLIENT_ID)
+          #     DATABRICKS_CLIENT_SECRET: $(_DATABRICKS_CLIENT_SECRET)
           #   workingDirectory: "$(System.DefaultWorkingDirectory)"
           #   displayName: "Execute Nutter based unit tests"
 
@@ -176,10 +176,9 @@ stages:
               echo $(TARGET)
               databricks bundle validate --target $(TARGET)
             env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
+              DATABRICKS_HOST: $(_DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(_DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(_DATABRICKS_CLIENT_SECRET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Validate bundle"
             condition: and(succeeded(), in(variables['TARGET'], 'dev', 'staging', 'prod'))
