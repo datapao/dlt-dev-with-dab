@@ -10,7 +10,6 @@ resources:
 
       configuration:
         bundle.sourcePath: /Workspace/${workspace.root_path}/files
-        my_etl.data_path: /databricks-datasets/wikipedia-datasets/data-001/clickstream/raw-uncompressed-json/2015_2_clickstream.json
 
       clusters:
         - label: default
@@ -26,7 +25,7 @@ resources:
             path: ../tests/integration/DLT-Pipeline-Test.py
 
       configuration:
-        bundle.sourcePath: /Workspace/${workspace.file_path}/src
+        bundle.sourcePath: /Workspace/${workspace.root_path}/files
         my_etl.data_path: /databricks-datasets/wikipedia-datasets/data-001/clickstream/raw-uncompressed-json/2015_2_clickstream.json
 
       clusters:

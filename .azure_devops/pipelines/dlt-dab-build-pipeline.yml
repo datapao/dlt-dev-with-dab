@@ -8,23 +8,32 @@ variables:
       - group: DLT_DAB_ENV_STG
       - name: TARGET
         value: "staging"
-  - ${{ else }}:
+  - ${{ elseif eq(replace(variables['Build.SourceBranch'], 'refs/heads/', ''), 'development') }}:
       - group: DLT_DAB_ENV_DEV
       - name: TARGET
         value: "dev"
 
-  # # Set test environment variables
-  # - group: DBX_ENV_TST
-
-  # # Set common variables
-  # - group: DBX_COMMON
+  # Set test environment variables
+  - group: DLT_DAB_ENV_DEV_TEST
 
   # Others
   - name: GIT_BRANCH
     value: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
 
-trigger:
-  batch: true
+# trigger:
+#   batch: true
+#   branches:
+#     include:
+#       - "development"
+#       - "staging"
+#       - "main"
+#   paths:
+#     exclude: # Exclude files from triggering the pipeline
+#       # - ".azure_devops/*"
+#       - ".github/*"
+#       - "README.md"
+
+pr:
   branches:
     include:
       - "development"
@@ -32,7 +41,6 @@ trigger:
       - "main"
   paths:
     exclude: # Exclude files from triggering the pipeline
-      # - ".azure_devops/*"
       - ".github/*"
       - "README.md"
 
@@ -77,45 +85,16 @@ stages:
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Install Databricks CLI"
 
-          # - script: |
-          #     echo "sonar.projectName=paofactory-dbx-devops-buildout-demo" >> sonar-project.properties
-          #     echo "sonar.projectKey=$(SONARQUBE_PROJECT_KEY)" >> sonar-project.properties
-          #     echo "sonar.projectVersion=$(GIT_BRANCH)-$(Build.BuildId)" >> sonar-project.properties
-          #     echo "sonar.analysis.revision=$(Rev:.r)" >> sonar-project.properties
-          #     echo "sonar.analysis.branch=$(GIT_BRANCH)" >> sonar-project.properties
-          #     echo "sonar.analysis.buildid=$(Build.BuildId)" >> sonar-project.properties
-          #   workingDirectory: '$(System.DefaultWorkingDirectory)'
-          #   displayName: 'Set SonarQube analyzer properties'
-
-          # - task: SonarQubePrepare@5
-          #   inputs:
-          #     SonarQube: 'pao-sonarqube'
-          #     scannerMode: 'CLI'
-          #     configMode: 'file'
-          #     configFile: 'sonar-project.properties'
-          #   displayName: 'Initialize SonarQube analyzer'
-
           #########################################################
-          # Execute unit tests
+          # Execute unit and integration tests in TEST environment
           #########################################################
 
           - script: |
-              databricks bundle validate
+              databricks bundle deploy --target dev_test
             env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
-            displayName: "Validate bundle"
-
-          - script: |
-              databricks bundle deploy
-            env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Deploy bundle to dev test"
 
@@ -129,14 +108,12 @@ stages:
           #   displayName: "Execute Nutter based unit tests"
 
           - script: |
-              poetry run pytest tests/unit-local --junit-xml=test-local.xml --cov
-              # python -m pytest tests/unit --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov=. --junitxml=test-pytest-junit.xml
+              poetry run pytest tests/unit-local --junit-xml=test-local.xml --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov
             env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_CLUSTER_ID: $(CLUSTER_ID)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
+              DATABRICKS_CLUSTER_ID: $(TEST_CLUSTER_ID)
             displayName: "Execute Pytest unit tests"
 
           #########################################################
@@ -144,6 +121,8 @@ stages:
           #########################################################
 
           - script: |
+              set -e
+              set -x
               DLT_START=$SECONDS
               DLT_START_ISO=$(date --iso-8601=seconds)
               poetry run databricks pipelines start-update $(TEST_DLT_PIPELINE_ID) --full-refresh
@@ -160,6 +139,7 @@ stages:
               DLT_FINISH=$SECONDS
               DLT_ERRORS=$(( "$DLT_STATUS" = "FAILED" ? 1 : 0 ))
               DLT_SKIPPED=$(( "$DLT_STATUS" = "CANCELED" ? 1 : 0 ))
+              echo "Writing JUnit report for DLT test"
               echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><testsuites><testsuite name=\"DLT Integration test\" tests=\"1\" skipped=\"$DLT_SKIPPED\" errors=\"$DLT_ERRORS\" failures=\"$DLT_ERRORS\" time=\"$((DLT_FINISH-DLT_START))\" timestamp=\"${DLT_START_ISO}\">" > test-dlt.xml
               echo "<testcase classname=\"DLTIntegration\" name=\"${TEST_DLT_PIPELINE_NAME}\" time=\"$((DLT_FINISH-DLT_START))\">" >> test-dlt.xml
               if [ "$DLT_STATUS" = "FAILED" ]; then
@@ -172,46 +152,41 @@ stages:
               if [ "$DLT_STATUS" != "COMPLETED" ]; then
                 exit 1
               fi
+              cat test-dlt.xml
             env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
             displayName: "Execute DLT Integration Test pipeline"
 
           - script: |
-              databricks bundle run --validate-only my_project_pipeline
+              databricks bundle run --target dev_test --validate-only my_project_pipeline
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Validate DLT pipeline"
+
+          #########################################################
+          # Validate bundle against target environment
+          #########################################################
+
+          - script: |
+              echo $(TARGET)
+              databricks bundle validate --target $(TARGET)
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
-            displayName: "Validate DLT pipeline"
-
-          #- script: |
-          #    databricks bundle run -t $(TARGET) integration-tests-runner
-          #  env:
-          #    DATABRICKS_HOST: $(DATABRICKS_INSTANCE)
-          #    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
-          #  workingDirectory: '$(System.DefaultWorkingDirectory)'
-          #  condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
-          #  displayName: 'Execute Pytest integration tests'
-
-          #########################################################
-          # SonarQube analyzer
-          #########################################################
-
-          # - task: SonarQubeAnalyze@5
-          #   displayName: "Run SonarQube analyzer"
+            displayName: "Validate bundle"
+            condition: and(succeeded(), in(variables['TARGET'], 'dev', 'staging', 'prod'))
 
           #########################################################
           # Publish artifacts
           #########################################################
-
-          # - script: |
-          #     rm sonar-project.properties
-          #   workingDirectory: "$(System.DefaultWorkingDirectory)"
-          #   displayName: "Clean-up directory"
 
           - task: ArchiveFiles@2
             condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
@@ -223,6 +198,14 @@ stages:
               replaceExistingArchive: true
             displayName: "Archive files"
 
+          # Publish code coverage results v2
+          # Publish any of the code coverage results from a build.
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              codeCoverageTool: "Cobertura" # pytest-cov generates a Cobertura-style XML report
+              summaryFileLocation: "$(System.DefaultWorkingDirectory)/coverage-reports/coverage-pytest.xml"
+              #pathToSources: # string. Path to Source files.
+
           - task: PublishBuildArtifacts@1
             condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
             inputs:
@@ -233,11 +216,6 @@ stages:
           #########################################################
           # Process test results
           #########################################################
-
-          # - task: SonarQubePublish@5
-          #   inputs:
-          #     pollingTimeoutSec: "300"
-          #   displayName: "Publish SonarQube analyzer results"
 
           - task: PublishTestResults@2
             condition: succeededOrFailed()

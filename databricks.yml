@@ -17,20 +17,20 @@ targets:
     default: true
     workspace:
       host: https://adb-5676227643839758.18.azuredatabricks.net
+    run_as:
+      service_principal_name: 9549030e-28bd-4117-9425-aae80bb32e5e
 
   dev:
     workspace:
       host: https://adb-5676227643839758.18.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
-      # file_path: /Shared/.bundle/${bundle.name}/${bundle.target}/files/
     run_as:
-      service_principal_name: TODO
+      service_principal_name: 9549030e-28bd-4117-9425-aae80bb32e5e
 
   staging:
     workspace:
       host: https://adb-1514846600999043.3.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
-      # file_path: /Shared/.bundle/${bundle.name}/${bundle.target}/files/
     run_as:
       service_principal_name: TODO
 
@@ -42,6 +42,5 @@ targets:
     workspace:
       host: https://adb-4274239058909652.12.azuredatabricks.net/
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
-      # file_path: /Shared/.bundle/${bundle.name}/${bundle.target}/files/
     run_as:
       service_principal_name: TODO
