@@ -114,7 +114,6 @@ stages:
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
               DATABRICKS_CLUSTER_ID: $(TEST_CLUSTER_ID)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Execute Pytest unit tests"
 
           #########################################################
@@ -158,7 +157,6 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Execute DLT Integration Test pipeline"
 
           - script: |
