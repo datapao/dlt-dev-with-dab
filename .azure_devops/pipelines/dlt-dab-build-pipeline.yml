@@ -94,7 +94,7 @@ stages:
           #########################################################
 
           - script: |
-              databricks bundle deploy
+              databricks bundle deploy --target dev_test
             env:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
