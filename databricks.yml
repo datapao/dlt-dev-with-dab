@@ -32,7 +32,7 @@ targets:
       host: https://adb-1514846600999043.3.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
     run_as:
-      service_principal_name: TODO
+      service_principal_name: 7c260c8d-5e45-4376-9dfb-2a653d3d49b4
 
   # The 'prod' target, used for production deployment.
   prod:
@@ -43,4 +43,4 @@ targets:
       host: https://adb-4274239058909652.12.azuredatabricks.net/
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
     run_as:
-      service_principal_name: TODO
+      service_principal_name: a142ef6c-1ad5-42f5-aa75-28b591e0be98

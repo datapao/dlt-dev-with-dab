@@ -153,6 +153,7 @@ stages:
                 exit 1
               fi
               cat test-dlt.xml
+              echo "$(pwd)/test-dlt.xml"
             env:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
