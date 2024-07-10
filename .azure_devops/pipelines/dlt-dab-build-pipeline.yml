@@ -95,7 +95,6 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Deploy bundle to dev test"
 
@@ -154,6 +153,7 @@ stages:
               if [ "$DLT_STATUS" != "COMPLETED" ]; then
                 exit 1
               fi
+              cat test-dlt.xml
             env:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
@@ -162,12 +162,11 @@ stages:
             displayName: "Execute DLT Integration Test pipeline"
 
           - script: |
-              databricks bundle run --validate-only my_project_pipeline
+              databricks bundle run --target dev_test --validate-only my_project_pipeline
             env:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Validate DLT pipeline"
 
@@ -176,6 +175,7 @@ stages:
           #########################################################
 
           - script: |
+              echo $(TARGET)
               databricks bundle validate --target $(TARGET)
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST)

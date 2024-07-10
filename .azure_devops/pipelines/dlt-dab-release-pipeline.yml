@@ -40,8 +40,8 @@ jobs:
   dependsOn: preconfig
   variables:
     - group: DBX_ENV_DEV
-    - name: ENV_ID
-      value: 'DEV'
+    - name: TARGET
+      value: 'dev'
     - name: GIT_BRANCH
       value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
   environment: development
@@ -63,8 +63,8 @@ jobs:
   dependsOn: preconfig
   variables:
     - group: DBX_ENV_STG
-    - name: ENV_ID
-      value: 'STG'
+    - name: TARGET
+      value: 'staging'
     - name: GIT_BRANCH
       value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
   environment: staging
@@ -86,8 +86,8 @@ jobs:
   dependsOn: preconfig
   variables:
     - group: DBX_ENV_PROD
-    - name: ENV_ID
-      value: 'PROD'
+    - name: TARGET
+      value: 'prod'
     - name: GIT_BRANCH
       value: $[ dependencies.preconfig.outputs['branchvar.GIT_BRANCH'] ]
   environment: production

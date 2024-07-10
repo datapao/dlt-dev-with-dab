@@ -1,68 +1,20 @@
 steps:
-- task: UsePythonVersion@0
-  displayName: 'Use Python 3.9'
-  inputs:
-    versionSpec: 3.9
-        
-- task: ExtractFiles@1
-  inputs:
-    archiveFilePatterns: '$(Pipeline.Workspace)/buildpl/drop/$(resources.pipeline.buildpl.runID).zip'
-    destinationFolder: '$(Pipeline.Workspace)'
-    cleanDestinationFolder: false
-  
-- script: |
-    python -m pip install -r requirements-dev.txt
-    python -m pip install urllib3==1.26.15
-    python -m pip install msal
-    python -m pip install fire
-  displayName: 'Install dependencies'
-  workingDirectory: '$(Pipeline.Workspace)'
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: "$(Pipeline.Workspace)/buildpl/drop/$(resources.pipeline.buildpl.runID).zip"
+      destinationFolder: "$(Pipeline.Workspace)"
+      cleanDestinationFolder: false
 
-- script: |
-    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
-  workingDirectory: '$(System.DefaultWorkingDirectory)'
-  displayName: 'Install Databricks CLI'
-  
-# - script: |
-#     python devops_utils.py create_azure_devops_pl_env_variable_with_aad_token --tenant_id "$(TENANT_ID)" --client_id "$(CLIENT_ID)" --client_secret "$(CLIENT_SECRET)" --scope "$(SCOPE)"
-#   displayName: 'Get access token from AAD using an environment-scoped service principal for Databricks CLI'
-#   workingDirectory: '$(Pipeline.Workspace)/devops_utils/'
-  
-# - script: |
-#     databricks repos update $(REPO_PATH) --branch "$(GIT_BRANCH)"
-#   env:
-#     DATABRICKS_HOST: $(DATABRICKS_INSTANCE)
-#     DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
-#   workingDirectory: '$(Pipeline.Workspace)'
-#   displayName: 'Pull $(GIT_BRANCH) branch on $(ENV_ID) Databricks instance'
-  
-- script: |
-    python devops_utils.py create_azure_devops_pl_env_variable_with_aad_token --tenant_id "$(TENANT_ID)" --client_id "$(CLIENT_ID)" --client_secret "$(CLIENT_SECRET)" --scope "$(SCOPE)"
-  displayName: 'Get access token from AAD using an environment-scoped service principal for DBX CLI'
-  workingDirectory: '$(Pipeline.Workspace)/devops_utils/'
+  - script: |
+      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+    workingDirectory: "$(System.DefaultWorkingDirectory)"
+    displayName: "Install Databricks CLI"
 
-- task: AzureCLI@2
-  displayName: 'Release JAR to blob'
-  inputs:
-    azureSubscription: 'CONN_DEMO_PAOFACTORY_DBX_DEVOPS'
-    scriptType: bash
-    scriptLocation: inlineScript
-    inlineScript: |
-      echo "1. Set environment variables for azcopy to authenticate against the client Id and secret of service principal that is referenced by the ARM service connection:"
-      export AZCOPY_AUTO_LOGIN_TYPE=SPN
-      export AZCOPY_SPA_APPLICATION_ID=$servicePrincipalId
-      export AZCOPY_SPA_CLIENT_SECRET=$servicePrincipalKey
-      export AZCOPY_TENANT_ID=$tenantId
-      echo "2. Copy jar file to container:"
-      azcopy cp  "./dist_jar/dbx_jar_sample_8.jar" "https://$(STORAGE_ACCOUNT).blob.core.windows.net/librelease/lib/$(Build.BuildId)/"
-    addSpnToEnvironment: true
-    workingDirectory: '$(Pipeline.Workspace)'
-
-- script: |
-    databricks bundle deploy --var="jar_lib_path=$(LIB_VOLUME)/$(Build.BuildId)/dbx_jar_sample_8.jar"
-  env:
-    DATABRICKS_HOST: $(DATABRICKS_INSTANCE)
-    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
-    DATABRICKS_BUNDLE_ENV: $(ENV_ID)
-  workingDirectory: '$(Pipeline.Workspace)'
-  displayName: 'Deploy workflows'
+  - script: |
+      databricks bundle deploy --target $(TARGET)
+    env:
+      DATABRICKS_HOST: $(DATABRICKS_HOST)
+      DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+      DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+    workingDirectory: "$(Pipeline.Workspace)"
+    displayName: "Deploy bundle"
