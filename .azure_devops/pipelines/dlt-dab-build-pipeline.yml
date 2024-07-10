@@ -12,10 +12,6 @@ variables:
       - group: DLT_DAB_ENV_DEV
       - name: TARGET
         value: "dev"
-  - ${{ else }}:
-      - group: DLT_DAB_ENV_DEV_TEST
-      - name: TARGET
-        value: "dev_test"
 
   # Set test environment variables
   - group: DLT_DAB_ENV_DEV_TEST
