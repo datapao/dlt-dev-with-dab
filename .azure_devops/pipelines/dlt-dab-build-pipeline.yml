@@ -8,16 +8,17 @@ variables:
       - group: DLT_DAB_ENV_STG
       - name: TARGET
         value: "staging"
-  - ${{ else }}:
+  - ${{ elseif eq(replace(variables['Build.SourceBranch'], 'refs/heads/', ''), 'development') }}:
       - group: DLT_DAB_ENV_DEV
       - name: TARGET
         value: "dev"
+  - ${{ else }}:
+      - group: DLT_DAB_ENV_DEV_TEST
+      - name: TARGET
+        value: "dev_test"
 
-  # # Set test environment variables
-  # - group: DBX_ENV_TST
-
-  # # Set common variables
-  # - group: DBX_COMMON
+  # Set test environment variables
+  - group: DLT_DAB_ENV_DEV_TEST
 
   # Others
   - name: GIT_BRANCH
@@ -33,6 +34,17 @@ trigger:
   paths:
     exclude: # Exclude files from triggering the pipeline
       # - ".azure_devops/*"
+      - ".github/*"
+      - "README.md"
+
+pr:
+  branches:
+    include:
+      - "development"
+      - "staging"
+      - "main"
+  paths:
+    exclude: # Exclude files from triggering the pipeline
       - ".github/*"
       - "README.md"
 
@@ -77,44 +89,16 @@ stages:
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Install Databricks CLI"
 
-          # - script: |
-          #     echo "sonar.projectName=paofactory-dbx-devops-buildout-demo" >> sonar-project.properties
-          #     echo "sonar.projectKey=$(SONARQUBE_PROJECT_KEY)" >> sonar-project.properties
-          #     echo "sonar.projectVersion=$(GIT_BRANCH)-$(Build.BuildId)" >> sonar-project.properties
-          #     echo "sonar.analysis.revision=$(Rev:.r)" >> sonar-project.properties
-          #     echo "sonar.analysis.branch=$(GIT_BRANCH)" >> sonar-project.properties
-          #     echo "sonar.analysis.buildid=$(Build.BuildId)" >> sonar-project.properties
-          #   workingDirectory: '$(System.DefaultWorkingDirectory)'
-          #   displayName: 'Set SonarQube analyzer properties'
-
-          # - task: SonarQubePrepare@5
-          #   inputs:
-          #     SonarQube: 'pao-sonarqube'
-          #     scannerMode: 'CLI'
-          #     configMode: 'file'
-          #     configFile: 'sonar-project.properties'
-          #   displayName: 'Initialize SonarQube analyzer'
-
           #########################################################
-          # Execute unit tests
+          # Execute unit and integration tests in TEST environment
           #########################################################
-
-          - script: |
-              databricks bundle validate
-            env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_BUNDLE_TARGET: $(TARGET)
-            workingDirectory: "$(System.DefaultWorkingDirectory)"
-            displayName: "Validate bundle"
 
           - script: |
               databricks bundle deploy
             env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
               DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Deploy bundle to dev test"
@@ -129,13 +113,13 @@ stages:
           #   displayName: "Execute Nutter based unit tests"
 
           - script: |
-              poetry run pytest tests/unit-local --junit-xml=test-local.xml --cov
+              poetry run pytest tests/unit-local --junit-xml=test-local.xml --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov
               # python -m pytest tests/unit --cov-report=xml:./coverage-reports/coverage-pytest.xml --cov=. --junitxml=test-pytest-junit.xml
             env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              DATABRICKS_CLUSTER_ID: $(CLUSTER_ID)
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
+              DATABRICKS_CLUSTER_ID: $(TEST_CLUSTER_ID)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Execute Pytest unit tests"
 
@@ -173,45 +157,39 @@ stages:
                 exit 1
               fi
             env:
-              DATABRICKS_HOST: $(DATABRICKS_HOST)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
             displayName: "Execute DLT Integration Test pipeline"
 
           - script: |
               databricks bundle run --validate-only my_project_pipeline
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
+              DATABRICKS_BUNDLE_TARGET: $(TARGET)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
+            displayName: "Validate DLT pipeline"
+
+          #########################################################
+          # Validate bundle against target environment
+          #########################################################
+
+          - script: |
+              databricks bundle validate --target $(TARGET)
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_BUNDLE_TARGET: $(TARGET)
             workingDirectory: "$(System.DefaultWorkingDirectory)"
-            displayName: "Validate DLT pipeline"
-
-          #- script: |
-          #    databricks bundle run -t $(TARGET) integration-tests-runner
-          #  env:
-          #    DATABRICKS_HOST: $(DATABRICKS_INSTANCE)
-          #    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
-          #  workingDirectory: '$(System.DefaultWorkingDirectory)'
-          #  condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
-          #  displayName: 'Execute Pytest integration tests'
-
-          #########################################################
-          # SonarQube analyzer
-          #########################################################
-
-          # - task: SonarQubeAnalyze@5
-          #   displayName: "Run SonarQube analyzer"
+            displayName: "Validate bundle"
+            condition: and(succeeded(), in(variables['TARGET'], 'dev', 'staging', 'prod'))
 
           #########################################################
           # Publish artifacts
           #########################################################
-
-          # - script: |
-          #     rm sonar-project.properties
-          #   workingDirectory: "$(System.DefaultWorkingDirectory)"
-          #   displayName: "Clean-up directory"
 
           - task: ArchiveFiles@2
             condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
@@ -222,6 +200,14 @@ stages:
               archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
               replaceExistingArchive: true
             displayName: "Archive files"
+
+          # Publish code coverage results v2
+          # Publish any of the code coverage results from a build.
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              codeCoverageTool: "Cobertura" # pytest-cov generates a Cobertura-style XML report
+              summaryFileLocation: "$(System.DefaultWorkingDirectory)/coverage-reports/coverage-pytest.xml"
+              #pathToSources: # string. Path to Source files.
 
           - task: PublishBuildArtifacts@1
             condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
