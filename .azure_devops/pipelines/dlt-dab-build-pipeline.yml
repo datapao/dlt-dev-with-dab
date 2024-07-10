@@ -160,6 +160,7 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_TEST_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_TEST_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_TEST_CLIENT_SECRET)
+            workingDirectory: "$(System.DefaultWorkingDirectory)"
             displayName: "Execute DLT Integration Test pipeline"
 
           - script: |
@@ -219,11 +220,6 @@ stages:
           #########################################################
           # Process test results
           #########################################################
-
-          # - task: SonarQubePublish@5
-          #   inputs:
-          #     pollingTimeoutSec: "300"
-          #   displayName: "Publish SonarQube analyzer results"
 
           - task: PublishTestResults@2
             condition: succeededOrFailed()
