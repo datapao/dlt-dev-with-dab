@@ -3,25 +3,13 @@ import pytest
 
 from chispa.dataframe_comparer import *
 from databricks.connect import DatabricksSession as SparkSession
-from databricks.sdk import WorkspaceClient
 
 from helpers.columns_helpers import *
 
 
 @pytest.fixture(scope="session")
 def spark_session() -> SparkSession:
-
-    # Wait for the spark session to be created, otherwise the following error occurs:
-    # pyspark.errors.exceptions.connect.SparkConnectGrpcException:
-    # (org.apache.spark.SparkSQLException) [INVALID_HANDLE.SESSION_NOT_FOUND]
-    # The handle 8f333dc3-8476-4663-afce-4c582571ceac is invalid. Session not found. SQLSTATE: HY000
-    w = WorkspaceClient()
-
-    cluster_id = os.environ["TEST_CLUSTER_ID"]
-    w.clusters.ensure_cluster_is_running(cluster_id)
-
-    spark = SparkSession.builder.getOrCreate()
-    return spark
+    return SparkSession.builder.serverless().getOrCreate()
 
 
 def test_columns_except(spark_session: SparkSession):
