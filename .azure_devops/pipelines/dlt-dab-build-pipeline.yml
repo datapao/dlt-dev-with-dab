@@ -188,16 +188,6 @@ stages:
           # Publish artifacts
           #########################################################
 
-          - task: ArchiveFiles@2
-            condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
-            inputs:
-              rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
-              includeRootFolder: false
-              archiveType: zip
-              archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-              replaceExistingArchive: true
-            displayName: "Archive files"
-
           # Publish code coverage results v2
           # Publish any of the code coverage results from a build.
           - task: PublishCodeCoverageResults@2
@@ -205,13 +195,6 @@ stages:
               codeCoverageTool: "Cobertura" # pytest-cov generates a Cobertura-style XML report
               summaryFileLocation: "$(System.DefaultWorkingDirectory)/coverage-reports/coverage-pytest.xml"
               #pathToSources: # string. Path to Source files.
-
-          - task: PublishBuildArtifacts@1
-            condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
-            inputs:
-              PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
-              artifactName: "drop"
-            displayName: "Upload build_$(Build.BuildId).zip to artifacts"
 
           #########################################################
           # Process test results
