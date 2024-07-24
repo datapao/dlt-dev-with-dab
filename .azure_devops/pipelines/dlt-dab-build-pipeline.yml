@@ -196,13 +196,6 @@ stages:
               summaryFileLocation: "$(System.DefaultWorkingDirectory)/coverage-reports/coverage-pytest.xml"
               #pathToSources: # string. Path to Source files.
 
-          - task: PublishBuildArtifacts@1
-            condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
-            inputs:
-              PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
-              artifactName: "drop"
-            displayName: "Upload build_$(Build.BuildId).zip to artifacts"
-
           #########################################################
           # Process test results
           #########################################################
