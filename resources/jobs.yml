@@ -19,11 +19,20 @@ resources:
           pipeline_task:
             pipeline_id: ${resources.pipelines.my_project_pipeline.id}
         
-      job_clusters:
-        - job_cluster_key: job_cluster
-          new_cluster:
-            spark_version: 13.3.x-scala2.12
-            node_type_id: Standard_D3_v2
-            autoscale:
-                min_workers: 1
-                max_workers: 4
+
+    integration_test:
+      name: integration_test
+
+      tasks:
+        - task_key: refresh_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.my_project_pipeline.id}
+            full_refresh: true
+
+        - task_key: validate
+          notebook_task:
+            notebook_path: ../tests/integration/pipeline_results.py
+            base_parameters:
+              schema: my_project_${bundle.environment}
+          depends_on:
+            - task_key: refresh_pipeline
