@@ -1,9 +1,9 @@
 steps:
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: "$(Pipeline.Workspace)/buildpl/drop/$(resources.pipeline.buildpl.runID).zip"
-      destinationFolder: "$(Pipeline.Workspace)"
-      cleanDestinationFolder: false
+  - checkout: self
+    persistCredentials: true
+    clean: true
+    fetchDepth: 0
+    displayName: "Checkout & Build.Reason: $(Build.Reason) & Build.SourceBranchName: $(Build.SourceBranchName)"
 
   - script: |
       curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh

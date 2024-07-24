@@ -188,16 +188,6 @@ stages:
           # Publish artifacts
           #########################################################
 
-          - task: ArchiveFiles@2
-            condition: in(variables['GIT_BRANCH'], 'development', 'staging', 'main')
-            inputs:
-              rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
-              includeRootFolder: false
-              archiveType: zip
-              archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-              replaceExistingArchive: true
-            displayName: "Archive files"
-
           # Publish code coverage results v2
           # Publish any of the code coverage results from a build.
           - task: PublishCodeCoverageResults@2
